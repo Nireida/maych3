@@ -67,6 +67,27 @@ function applyGravityAndRefill(
   return newGrid;
 }
 
+// Существует ли вообще пара соседей, обмен которыми даёт матч.
+// O(N^2 * findMatches) — для 12x12 это ~20k операций, дёшево.
+function hasAnyValidSwap(grid: Cell[][]): boolean {
+  const trySwap = (r1: number, c1: number, r2: number, c2: number) => {
+    const next = grid.map((row) => row.slice());
+    const t = next[r1][c1];
+    next[r1][c1] = next[r2][c2];
+    next[r2][c2] = t;
+    return findMatches(next).size > 0;
+  };
+
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (!grid[r][c]) continue;
+      if (c + 1 < GRID_SIZE && grid[r][c + 1] && trySwap(r, c, r, c + 1)) return true;
+      if (r + 1 < GRID_SIZE && grid[r + 1][c] && trySwap(r, c, r + 1, c)) return true;
+    }
+  }
+  return false;
+}
+
 // Поиск всех горизонтальных и вертикальных серий длиной >= 3 одного цвета.
 // Возвращает множество id тайлов, попавших в матч.
 function findMatches(grid: Cell[][]): Set<string> {
@@ -112,17 +133,21 @@ function findMatches(grid: Cell[][]): Set<string> {
 interface BoardProps {
   onScore: (delta: number) => void;
   onMove: () => void;
+  onGameOver: () => void;
+  gameOver: boolean;
 }
 
-function Board({ onScore, onMove }: BoardProps) {
+function Board({ onScore, onMove, onGameOver, gameOver }: BoardProps) {
   const [grid, setGrid] = useState<Cell[][]>([]);
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null);
 
   // Колбэки держим в ref, чтобы не пересоздавать processMatches/тик.
   const onScoreRef = useRef(onScore);
   const onMoveRef = useRef(onMove);
+  const onGameOverRef = useRef(onGameOver);
   useEffect(() => { onScoreRef.current = onScore; }, [onScore]);
   useEffect(() => { onMoveRef.current = onMove; }, [onMove]);
+  useEffect(() => { onGameOverRef.current = onGameOver; }, [onGameOver]);
 
   // Зеркало grid для чтения внутри useTick (где state замораживается в замыкании).
   const gridRef = useRef<Cell[][]>(grid);
@@ -186,7 +211,11 @@ function Board({ onScore, onMove }: BoardProps) {
   // Найти матчи на текущей доске и пометить их как "исчезающие".
   const processMatches = () => {
     const matched = findMatches(gridRef.current);
-    if (matched.size === 0) return;
+    if (matched.size === 0) {
+      // Доска устоялась — проверим, остались ли вообще ходы.
+      if (!hasAnyValidSwap(gridRef.current)) onGameOverRef.current();
+      return;
+    }
     matched.forEach((id) => exitingRef.current.add(id));
     if (scoringEnabledRef.current) onScoreRef.current(matched.size);
     isAnimatingRef.current = true;
@@ -266,7 +295,7 @@ function Board({ onScore, onMove }: BoardProps) {
 
   // Обработка клика по шарику
   const handleTileClick = (r: number, c: number) => {
-    if (isAnimatingRef.current) return;
+    if (isAnimatingRef.current || gameOver) return;
     const tile = grid[r]?.[c];
     if (!tile) return; // по пустой клетке не реагируем
 
@@ -372,11 +401,13 @@ export default function App() {
   const size = BOARD_SIZE * scale;
   const [score, setScore] = useState(0);
   const [moves, setMoves] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
   const handleScore = useCallback(
     (delta: number) => setScore((s) => s + delta),
     [],
   );
   const handleMove = useCallback(() => setMoves((m) => m + 1), []);
+  const handleGameOver = useCallback(() => setGameOver(true), []);
 
   return (
     <div
@@ -407,16 +438,44 @@ export default function App() {
         <span>points: {score}</span>
         <span>moves: {moves}</span>
       </div>
-      <Application
-        width={size}
-        height={size}
-        background={0x2a2a2a}
-        antialias
-      >
-        <pixiContainer scale={scale}>
-          <Board onScore={handleScore} onMove={handleMove} />
-        </pixiContainer>
-      </Application>
+      <div style={{ position: 'relative', width: size, height: size }}>
+        <Application
+          width={size}
+          height={size}
+          background={0x2a2a2a}
+          antialias
+        >
+          <pixiContainer scale={scale}>
+            <Board
+              onScore={handleScore}
+              onMove={handleMove}
+              onGameOver={handleGameOver}
+              gameOver={gameOver}
+            />
+          </pixiContainer>
+        </Application>
+        {gameOver && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0, 0, 0, 0.6)',
+              color: '#fff',
+              fontFamily: 'system-ui, -apple-system, sans-serif',
+              fontSize: 48,
+              fontWeight: 700,
+              letterSpacing: 1,
+              userSelect: 'none',
+              pointerEvents: 'auto',
+            }}
+          >
+            Game over
+          </div>
+        )}
+      </div>
     </div>
   );
 }
