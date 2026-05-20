@@ -9,7 +9,28 @@ extend({ Container, Graphics });
 const GRID_SIZE = 12;
 const TILE_SIZE = 40;
 const BOARD_SIZE = GRID_SIZE * TILE_SIZE;
-const COLORS = [0xFF4B4B, 0x4BC5FF, 0x4BFF4B, 0xFFD84B];
+const COLORS = [0xFF4B4B, 0x4BC5FF, 0x4BFF4B, 0xFFD84B, 0xC04BFF];
+
+// Подмешать к цвету белый/чёрный для бликов и «обода».
+function lighten(color: number, amount: number): number {
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  const nr = Math.min(255, Math.round(r + (255 - r) * amount));
+  const ng = Math.min(255, Math.round(g + (255 - g) * amount));
+  const nb = Math.min(255, Math.round(b + (255 - b) * amount));
+  return (nr << 16) | (ng << 8) | nb;
+}
+function darken(color: number, amount: number): number {
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  return (
+    (Math.round(r * (1 - amount)) << 16) |
+    (Math.round(g * (1 - amount)) << 8) |
+    Math.round(b * (1 - amount))
+  );
+}
 const SWAP_SPEED = 6;   // пикселей за тик при свопе
 const SCALE_SPEED = 0.08; // как быстро шарик ужимается при исчезновении (за тик)
 
@@ -350,11 +371,26 @@ function Board({ onScore, onMove, onGameOver, gameOver }: BoardProps) {
                   g.rect(-TILE_SIZE / 2, -TILE_SIZE / 2, TILE_SIZE, TILE_SIZE);
                   g.fill({ color: 0x000000, alpha: 0 });
 
-                  // Сам шарик
-                  g.circle(0, 0, TILE_SIZE * 0.4);
-                  g.fill({ color: COLORS[tile.colorIndex] });
+                  const base = COLORS[tile.colorIndex];
+                  const R = TILE_SIZE * 0.4;
 
-                  // Обводка, если выбран
+                  // Тёмный «обод» снизу — даёт ощущение края/тени.
+                  g.circle(0, TILE_SIZE * 0.03, R);
+                  g.fill({ color: darken(base, 0.45) });
+
+                  // Основное тело шарика — чуть меньше обода.
+                  g.circle(0, -TILE_SIZE * 0.01, R * 0.95);
+                  g.fill({ color: base });
+
+                  // Большое мягкое световое пятно сверху-слева.
+                  g.circle(-TILE_SIZE * 0.1, -TILE_SIZE * 0.1, R * 0.55);
+                  g.fill({ color: lighten(base, 0.5), alpha: 0.75 });
+
+                  // Маленький белый блик-«specular».
+                  g.circle(-TILE_SIZE * 0.14, -TILE_SIZE * 0.14, R * 0.18);
+                  g.fill({ color: 0xffffff, alpha: 0.9 });
+
+                  // Обводка, если выбран.
                   if (isSelected) {
                     g.circle(0, 0, TILE_SIZE * 0.45);
                     g.stroke({ width: 2, color: 0xffffff });
