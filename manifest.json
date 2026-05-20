@@ -1,0 +1,19 @@
+{
+  "short_name": "Match-3",
+  "name": "maych3 — Match-3 game",
+  "description": "Match-3 puzzle game",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a1a1a",
+  "background_color": "#1a1a1a"
+}

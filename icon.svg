@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="r" cx="38%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#ffbcbc"/>
+      <stop offset="55%" stop-color="#ff4b4b"/>
+      <stop offset="100%" stop-color="#7a1f1f"/>
+    </radialGradient>
+    <radialGradient id="y" cx="38%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#fff3bc"/>
+      <stop offset="55%" stop-color="#ffd84b"/>
+      <stop offset="100%" stop-color="#7a651f"/>
+    </radialGradient>
+    <radialGradient id="g" cx="38%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#d2ffd2"/>
+      <stop offset="55%" stop-color="#4bff4b"/>
+      <stop offset="100%" stop-color="#1f7a1f"/>
+    </radialGradient>
+  </defs>
+  <!-- фон -->
+  <rect width="512" height="512" rx="96" ry="96" fill="#1a1a1a"/>
+  <!-- корпус светофора -->
+  <rect x="146" y="56" width="220" height="400" rx="44" ry="44"
+        fill="#2a2a2a" stroke="#4a4a4a" stroke-width="6"/>
+  <!-- крепление сверху и снизу -->
+  <rect x="236" y="24" width="40" height="40" rx="6" fill="#4a4a4a"/>
+  <rect x="216" y="456" width="80" height="20" rx="6" fill="#4a4a4a"/>
+  <!-- три сигнала -->
+  <circle cx="256" cy="146" r="58" fill="url(#r)"/>
+  <circle cx="256" cy="256" r="58" fill="url(#y)"/>
+  <circle cx="256" cy="366" r="58" fill="url(#g)"/>
+</svg>
