@@ -438,6 +438,15 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [moves, setMoves] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  // <Application> от @pixi/react v8 создаёт WebGL-контекст синхронно при первом
+  // монтировании. В React.StrictMode он монтируется дважды и иногда «застывает»
+  // с пустым канвасом до первого resize. Откладываем mount на один кадр —
+  // к этому моменту layout уже посчитан, а двойной StrictMode-маунт схлопнут.
+  const [appReady, setAppReady] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAppReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   const handleScore = useCallback(
     (delta: number) => setScore((s) => s + delta),
     [],
@@ -475,21 +484,23 @@ export default function App() {
         <span>moves: {moves}</span>
       </div>
       <div style={{ position: 'relative', width: size, height: size }}>
-        <Application
-          width={size}
-          height={size}
-          background={0x2a2a2a}
-          antialias
-        >
-          <pixiContainer scale={scale}>
-            <Board
-              onScore={handleScore}
-              onMove={handleMove}
-              onGameOver={handleGameOver}
-              gameOver={gameOver}
-            />
-          </pixiContainer>
-        </Application>
+        {appReady && (
+          <Application
+            width={size}
+            height={size}
+            background={0x2a2a2a}
+            antialias
+          >
+            <pixiContainer scale={scale}>
+              <Board
+                onScore={handleScore}
+                onMove={handleMove}
+                onGameOver={handleGameOver}
+                gameOver={gameOver}
+              />
+            </pixiContainer>
+          </Application>
+        )}
         {gameOver && (
           <div
             style={{
