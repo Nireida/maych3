@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useReducer } from 'react';
+import React, { useState, useEffect, useRef, useReducer, useCallback } from 'react';
 import { Application, extend, useTick } from '@pixi/react';
 import { Container, Graphics } from 'pixi.js';
 
@@ -109,9 +109,20 @@ function findMatches(grid: Cell[][]): Set<string> {
   return matchedIds;
 }
 
-function Board() {
+interface BoardProps {
+  onScore: (delta: number) => void;
+  onMove: () => void;
+}
+
+function Board({ onScore, onMove }: BoardProps) {
   const [grid, setGrid] = useState<Cell[][]>([]);
   const [selected, setSelected] = useState<{ r: number; c: number } | null>(null);
+
+  // Колбэки держим в ref, чтобы не пересоздавать processMatches/тик.
+  const onScoreRef = useRef(onScore);
+  const onMoveRef = useRef(onMove);
+  useEffect(() => { onScoreRef.current = onScore; }, [onScore]);
+  useEffect(() => { onMoveRef.current = onMove; }, [onMove]);
 
   // Зеркало grid для чтения внутри useTick (где state замораживается в замыкании).
   const gridRef = useRef<Cell[][]>(grid);
@@ -129,6 +140,9 @@ function Board() {
   const isAnimatingRef = useRef(false);
   // Нужно ли после остановки анимации проверить доску на матчи.
   const pendingMatchCheckRef = useRef(false);
+  // Засчитывать ли матчи в счёт. Включается после первого пользовательского свопа,
+  // чтобы стартовые/каскадные матчи на сгенерированной доске не давали очков.
+  const scoringEnabledRef = useRef(false);
   // Для форс-ререндера на тиках движения.
   const [, forceRender] = useReducer((x: number) => x + 1, 0);
 
@@ -174,6 +188,7 @@ function Board() {
     const matched = findMatches(gridRef.current);
     if (matched.size === 0) return;
     matched.forEach((id) => exitingRef.current.add(id));
+    if (scoringEnabledRef.current) onScoreRef.current(matched.size);
     isAnimatingRef.current = true;
     forceRender();
   };
@@ -273,6 +288,8 @@ function Board() {
       if (findMatches(nextGrid).size > 0) {
         setGrid(nextGrid);
         isAnimatingRef.current = true;
+        scoringEnabledRef.current = true;
+        onMoveRef.current();
         // pendingMatchCheck выставит useEffect(grid)
       }
     }
@@ -353,17 +370,43 @@ function useBoardScale() {
 export default function App() {
   const scale = useBoardScale();
   const size = BOARD_SIZE * scale;
+  const [score, setScore] = useState(0);
+  const [moves, setMoves] = useState(0);
+  const handleScore = useCallback(
+    (delta: number) => setScore((s) => s + delta),
+    [],
+  );
+  const handleMove = useCallback(() => setMoves((m) => m + 1), []);
 
   return (
     <div
       style={{
         display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '100vh',
         backgroundColor: '#1a1a1a',
+        gap: 12,
+        padding: VIEWPORT_PADDING,
+        boxSizing: 'border-box',
       }}
     >
+      <div
+        style={{
+          display: 'flex',
+          gap: 24,
+          color: '#fff',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontSize: 24,
+          fontWeight: 600,
+          letterSpacing: 0.5,
+          userSelect: 'none',
+        }}
+      >
+        <span>points: {score}</span>
+        <span>moves: {moves}</span>
+      </div>
       <Application
         width={size}
         height={size}
@@ -371,7 +414,7 @@ export default function App() {
         antialias
       >
         <pixiContainer scale={scale}>
-          <Board />
+          <Board onScore={handleScore} onMove={handleMove} />
         </pixiContainer>
       </Application>
     </div>
