@@ -19,6 +19,54 @@ interface Tile {
 }
 type Cell = Tile | null;
 
+// Создать новый тайл со случайным цветом.
+function makeTile(r: number, c: number): Tile {
+  return {
+    id: `t-${r}-${c}-${Date.now()}-${Math.random()}`,
+    colorIndex: Math.floor(Math.random() * COLORS.length),
+  };
+}
+
+// Применить «гравитацию» по каждому столбцу: существующие тайлы сдвигаются
+// вниз, заполняя пустоты, а сверху досыпаются новые шарики.
+// initPositions/initScales заполняем для новых тайлов сразу — стартовая Y
+// выше доски, чтобы анимация выглядела как падение сверху.
+function applyGravityAndRefill(
+  grid: Cell[][],
+  initPositions: Map<string, { x: number; y: number }>,
+  initScales: Map<string, number>,
+): Cell[][] {
+  const newGrid: Cell[][] = grid.map((row) => row.slice());
+
+  for (let c = 0; c < GRID_SIZE; c++) {
+    // Собираем существующие тайлы в столбце (сверху вниз).
+    const remaining: Tile[] = [];
+    for (let r = 0; r < GRID_SIZE; r++) {
+      const cell = newGrid[r][c];
+      if (cell) remaining.push(cell);
+    }
+    const missing = GRID_SIZE - remaining.length;
+
+    // Верхние missing клеток — новые тайлы.
+    for (let r = 0; r < missing; r++) {
+      const tile = makeTile(r, c);
+      newGrid[r][c] = tile;
+      // Стартовая позиция — над доской, чтобы тайл «падал» в свою клетку.
+      initPositions.set(tile.id, {
+        x: c * TILE_SIZE,
+        y: (r - missing) * TILE_SIZE,
+      });
+      initScales.set(tile.id, 1);
+    }
+    // Снизу — оставшиеся, в исходном порядке.
+    for (let i = 0; i < remaining.length; i++) {
+      newGrid[missing + i][c] = remaining[i];
+    }
+  }
+
+  return newGrid;
+}
+
 // Поиск всех горизонтальных и вертикальных серий длиной >= 3 одного цвета.
 // Возвращает множество id тайлов, попавших в матч.
 function findMatches(grid: Cell[][]): Set<string> {
@@ -171,10 +219,11 @@ function Board() {
       }
     });
 
-    // 3) Удаляем "доисчезавшие" из grid и из refs
+    // 3) Удаляем "доисчезавшие" из grid и из refs, затем применяем
+    //    гравитацию и досыпаем новые шарики сверху.
     if (exitFinishedIds.length > 0) {
       const finishedSet = new Set(exitFinishedIds);
-      const newGrid = gridRef.current.map((row) =>
+      const clearedGrid = gridRef.current.map((row) =>
         row.map((cell) => (cell && finishedSet.has(cell.id) ? null : cell)),
       );
       exitFinishedIds.forEach((id) => {
@@ -183,6 +232,7 @@ function Board() {
         positions.delete(id);
         targets.delete(id);
       });
+      const newGrid = applyGravityAndRefill(clearedGrid, positions, scales);
       gridRef.current = newGrid;
       setGrid(newGrid);
     }
