@@ -275,24 +275,54 @@ function Board() {
   );
 }
 
+// Отступ от краёв экрана, чтобы поле не упиралось в самые границы вьюпорта.
+const VIEWPORT_PADDING = 16;
+
+function useBoardScale() {
+  const getScale = () => {
+    if (typeof window === 'undefined') return 1;
+    const available = Math.min(window.innerWidth, window.innerHeight) - VIEWPORT_PADDING * 2;
+    return Math.min(1, available / BOARD_SIZE);
+  };
+
+  const [scale, setScale] = useState<number>(getScale);
+
+  useEffect(() => {
+    const onResize = () => setScale(getScale());
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+
+  return scale;
+}
+
 export default function App() {
+  const scale = useBoardScale();
+  const size = BOARD_SIZE * scale;
+
   return (
     <div
       style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        height: '100vh',
+        minHeight: '100vh',
         backgroundColor: '#1a1a1a',
       }}
     >
       <Application
-        width={BOARD_SIZE}
-        height={BOARD_SIZE}
+        width={size}
+        height={size}
         background={0x2a2a2a}
         antialias
       >
-        <Board />
+        <pixiContainer scale={scale}>
+          <Board />
+        </pixiContainer>
       </Application>
     </div>
   );
